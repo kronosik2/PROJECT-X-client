@@ -35,14 +35,12 @@ export default function OrderForm() {
     <form onSubmit={handleSubmit(onSubmit)} className="max-w-2xl mx-auto p-6 space-y-6">
       <h2 className="text-2xl font-bold">Создать заказ</h2>
       
-      {/* Телефон */}
       <input 
         {...register('phone', { required: true })} 
         placeholder="Ваш телефон" 
         className="border p-2 w-full rounded" 
       />
       
-      {/* Выбор тарифа */}
       <div className="flex gap-4">
         <label className="flex items-center gap-2">
           <input type="radio" value="hourly" {...register('tariff')} /> 
@@ -54,7 +52,6 @@ export default function OrderForm() {
         </label>
       </div>
 
-      {/* Поле для цены (зависит от тарифа) */}
       {tariff === 'hourly' && (
         <input 
           {...register('hourly_rate', { required: true, min: 1 })} 
@@ -73,7 +70,6 @@ export default function OrderForm() {
         />
       )}
 
-      {/* Описание работ */}
       <textarea 
         {...register('description', { required: true })} 
         placeholder="Опишите, что нужно сделать" 
@@ -81,10 +77,9 @@ export default function OrderForm() {
         rows={3} 
       />
       
-      {/* Карта */}
       <div>
         <p className="mb-2 font-medium">Укажите адрес на карте:</p>
-        <YandexMap onAddressSelect={(text: string, lat: number, lng: number) => setAddress({ text, lat, lng })} />
+        <ClientOnlyMap onAddressSelect={(text: string, lat: number, lng: number) => setAddress({ text, lat, lng })} />
         {address.text && (
           <p className="mt-2 text-sm text-green-700">
             ✅ Адрес: {address.text}
@@ -92,7 +87,6 @@ export default function OrderForm() {
         )}
       </div>
 
-      {/* Дата и время */}
       <div className="flex gap-4">
         <input 
           {...register('date', { required: true })} 
