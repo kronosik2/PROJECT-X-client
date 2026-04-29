@@ -8,8 +8,11 @@ export default function OrderForm() {
   const { register, handleSubmit, watch } = useForm();
   const tariff = watch('tariff', 'hourly');
   const [address, setAddress] = useState({ text: '', lat: 0, lng: 0 });
+  const [sending, setSending] = useState(false);
 
   const onSubmit = async (data: any) => {
+    setSending(true);
+    
     const order = {
       client_phone: data.phone,
       tariff: data.tariff,
@@ -24,87 +27,93 @@ export default function OrderForm() {
     };
     
     const { data: result, error } = await supabase.from('orders').insert([order]).select();
+    
+    setSending(false);
+    
     if (error) {
-      alert('Ошибка: ' + error.message);
+      alert('❌ Ошибка: ' + error.message);
     } else {
-      alert(`Заказ создан! Номер: ${result[0].id}`);
+      alert(`✅ Заказ создан! Номер: ${result[0].id}\nСкоро с вами свяжутся грузчики`);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="max-w-2xl mx-auto p-6 space-y-6">
-      <h2 className="text-2xl font-bold">Создать заказ</h2>
-      
-      <input 
-        {...register('phone', { required: true })} 
-        placeholder="Ваш телефон" 
-        className="border p-2 w-full rounded" 
-      />
-      
-      <div className="flex gap-4">
-        <label className="flex items-center gap-2">
-          <input type="radio" value="hourly" {...register('tariff')} /> 
-          Почасовая оплата
-        </label>
-        <label className="flex items-center gap-2">
-          <input type="radio" value="fixed" {...register('tariff')} /> 
-          Фиксированный бюджет
-        </label>
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <div className="field">
+        <label className="field-label">📱 Ваш телефон</label>
+        <input 
+          {...register('phone', { required: true })} 
+          placeholder="+7 (999) 123-45-67" 
+        />
+      </div>
+
+      <div className="field">
+        <label className="field-label">💰 Способ оплаты</label>
+        <div className="radio-group">
+          <label>
+            <input type="radio" value="hourly" {...register('tariff')} /> 
+            Почасовая (₽/час)
+          </label>
+          <label>
+            <input type="radio" value="fixed" {...register('tariff')} /> 
+            Фиксированный бюджет
+          </label>
+        </div>
       </div>
 
       {tariff === 'hourly' && (
-        <input 
-          {...register('hourly_rate', { required: true, min: 1 })} 
-          type="number" 
-          placeholder="Ставка в час (₽)" 
-          className="border p-2 w-full rounded" 
-        />
+        <div className="field">
+          <label className="field-label">⏱️ Ставка за час</label>
+          <input 
+            {...register('hourly_rate', { required: true, min: 1 })} 
+            type="number" 
+            placeholder="Например: 500" 
+          />
+        </div>
       )}
       
       {tariff === 'fixed' && (
-        <input 
-          {...register('fixed_budget', { required: true, min: 1 })} 
-          type="number" 
-          placeholder="Бюджет на всю работу (₽)" 
-          className="border p-2 w-full rounded" 
-        />
+        <div className="field">
+          <label className="field-label">💰 Бюджет на всю работу</label>
+          <input 
+            {...register('fixed_budget', { required: true, min: 1 })} 
+            type="number" 
+            placeholder="Например: 3000" 
+          />
+        </div>
       )}
 
-      <textarea 
-        {...register('description', { required: true })} 
-        placeholder="Опишите, что нужно сделать" 
-        className="border p-2 w-full rounded" 
-        rows={3} 
-      />
+      <div className="field">
+        <label className="field-label">📝 Описание работ</label>
+        <textarea 
+          {...register('description', { required: true })} 
+          placeholder="Например: поднять диван на 3 этаж, разгрузить фуру, собрать шкаф..."
+          rows={3} 
+        />
+      </div>
       
-      <div>
-        <p className="mb-2 font-medium">Укажите адрес на карте:</p>
-        <ClientOnlyMap onAddressSelect={(text: string, lat: number, lng: number) => setAddress({ text, lat, lng })} />
+      <div className="field">
+        <label className="field-label">📍 Адрес (кликните на карту)</label>
+        <div className="map-container">
+          <ClientOnlyMap onAddressSelect={(text: string, lat: number, lng: number) => setAddress({ text, lat, lng })} />
+        </div>
         {address.text && (
-          <p className="mt-2 text-sm text-green-700">
-            ✅ Адрес: {address.text}
-          </p>
+          <div className="address-badge">
+            ✅ Выбрано: {address.text}
+          </div>
         )}
       </div>
 
-      <div className="flex gap-4">
-        <input 
-          {...register('date', { required: true })} 
-          type="date" 
-          className="border p-2 w-1/2 rounded" 
-        />
-        <input 
-          {...register('time', { required: true })} 
-          type="time" 
-          className="border p-2 w-1/2 rounded" 
-        />
+      <div className="field">
+        <label className="field-label">📅 Когда нужны грузчики?</label>
+        <div className="row-2cols">
+          <input {...register('date', { required: true })} type="date" />
+          <input {...register('time', { required: true })} type="time" />
+        </div>
       </div>
 
-      <button 
-        type="submit" 
-        className="bg-blue-600 text-white p-3 rounded-xl w-full hover:bg-blue-700 transition"
-      >
-        Опубликовать заказ
+      <button type="submit" disabled={sending}>
+        {sending ? 'Отправка...' : '🚀 Опубликовать заказ'}
       </button>
     </form>
   );
