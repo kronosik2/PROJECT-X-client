@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { supabase } from '@/lib/supabaseClient';
-import YandexMap from './YandexMap';
+import ClientOnlyMap from './ClientOnlyMap';
 
 export default function OrderForm() {
   const { register, handleSubmit, watch } = useForm();
