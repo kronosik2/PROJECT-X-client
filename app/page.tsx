@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { useRouter } from 'next/navigation';
 import OrderForm from '@/components/OrderForm';
 import OrdersList from '@/components/OrdersList';
-import { useRouter } from 'next/navigation';
 
 export default function HomePage() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -22,6 +22,11 @@ export default function HomePage() {
     });
   }, []);
 
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push('/login');
+  }
+
   if (loading) return <div className="p-4">Загрузка...</div>;
   if (!userId) return null;
 
@@ -30,7 +35,7 @@ export default function HomePage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">PROJECT X - Клиент</h1>
         <button
-          onClick={() => supabase.auth.signOut()}
+          onClick={handleLogout}
           className="bg-red-600 text-white px-4 py-2 rounded"
         >
           Выйти
