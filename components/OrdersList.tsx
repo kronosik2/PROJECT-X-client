@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import ResponsesList from './ResponsesList';
 
 interface Order {
   id: string;
@@ -12,8 +11,7 @@ interface Order {
   price: number;
   status: string;
   worker_id: string | null;
-  worker_name?: string;
-  worker_phone?: string;
+  worker?: { name: string; phone: string };
   created_at: string;
 }
 
@@ -33,25 +31,13 @@ export default function OrdersList({ userId, refreshKey }: Props) {
   async function fetchOrders() {
     setLoading(true);
 
-    // Получаем UUID клиента
-    const { data: userData } = await supabase
-      .from('users')
-      .select('id')
-      .eq('clerk_id', userId)
-      .single();
-
-    if (!userData) {
-      setLoading(false);
-      return;
-    }
-
     const { data, error } = await supabase
       .from('orders')
       .select(`
         *,
         worker:worker_id (name, phone)
       `)
-      .eq('client_id', userData.id)
+      .eq('client_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -63,17 +49,9 @@ export default function OrdersList({ userId, refreshKey }: Props) {
   }
 
   async function confirmWorker(orderId: string) {
-    const { data: userData } = await supabase
-      .from('users')
-      .select('id')
-      .eq('clerk_id', userId)
-      .single();
-
-    if (!userData) return;
-
     const { data, error } = await supabase.rpc('confirm_worker', {
       p_order_id: orderId,
-      p_client_id: userData.id
+      p_client_id: userId
     });
 
     if (error) {
@@ -87,17 +65,9 @@ export default function OrdersList({ userId, refreshKey }: Props) {
   }
 
   async function completeOrder(orderId: string) {
-    const { data: userData } = await supabase
-      .from('users')
-      .select('id')
-      .eq('clerk_id', userId)
-      .single();
-
-    if (!userData) return;
-
     const { data, error } = await supabase.rpc('complete_order', {
       p_order_id: orderId,
-      p_client_id: userData.id
+      p_client_id: userId
     });
 
     if (error) {
@@ -119,23 +89,19 @@ export default function OrdersList({ userId, refreshKey }: Props) {
       
       {orders.map(order => (
         <div key={order.id} className="border rounded-lg p-4 shadow">
-          <div className="flex justify-between items-start">
-            <div>
-              <h3 className="text-lg font-semibold">{order.title}</h3>
-              <p className="text-gray-600">{order.description}</p>
-              <p className="text-sm">📍 {order.address}</p>
-              <p className="text-lg font-bold mt-1">{order.price} ₽</p>
-              <p className="text-sm mt-1">
-                Статус: <span className="font-bold">{order.status}</span>
-              </p>
-              
-              {order.worker_id && order.worker && (
-                <div className="mt-2 p-2 bg-green-50 rounded text-sm">
-                  <p>👤 Исполнитель: {order.worker.name || 'Без имени'} ({order.worker.phone})</p>
-                </div>
-              )}
+          <h3 className="text-lg font-semibold">{order.title}</h3>
+          <p className="text-gray-600">{order.description}</p>
+          <p className="text-sm">📍 {order.address}</p>
+          <p className="text-lg font-bold mt-1">{order.price} ₽</p>
+          <p className="text-sm mt-1">
+            Статус: <span className="font-bold">{order.status}</span>
+          </p>
+          
+          {order.worker_id && order.worker && (
+            <div className="mt-2 p-2 bg-green-50 rounded text-sm">
+              <p>👤 Исполнитель: {order.worker.name || 'Без имени'} ({order.worker.phone})</p>
             </div>
-          </div>
+          )}
           
           <div className="flex gap-2 mt-3">
             {order.status === 'approved' && (
@@ -156,11 +122,6 @@ export default function OrdersList({ userId, refreshKey }: Props) {
               </button>
             )}
           </div>
-          
-          {/* Отклики — только для pending заказов */}
-          {order.status === 'pending' && (
-            <ResponsesList orderId={order.id} onWorkerSelected={fetchOrders} />
-          )}
         </div>
       ))}
     </div>
