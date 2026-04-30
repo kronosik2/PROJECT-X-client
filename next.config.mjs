@@ -4,6 +4,7 @@ const nextConfig = {
   images: { unoptimized: true },
   basePath: '/PROJECT-X-client',
   assetPrefix: '/PROJECT-X-client',
+  trailingSlash: true,  // Добавляем слеш в конце
 };
 
 export default nextConfig;
