@@ -1,122 +1,96 @@
 'use client';
+
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
 import { supabase } from '@/lib/supabaseClient';
-import ClientOnlyMap from './ClientOnlyMap';
 
-export default function OrderForm() {
-  const { register, handleSubmit, watch } = useForm();
-  const tariff = watch('tariff', 'hourly');
-  const [address, setAddress] = useState({ text: '', lat: 0, lng: 0 });
-  const [sending, setSending] = useState(false);
+interface Props {
+  userId: string;
+  onSuccess: () => void;
+}
 
-  const onSubmit = async (data: any) => {
-    if (!address.text) {
-      alert('❌ Укажите адрес на карте');
+export default function OrderForm({ userId, onSuccess }: Props) {
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({
+    title: '',
+    description: '',
+    address: '',
+    price: ''
+  });
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+
+    // Получаем UUID из таблицы users по clerk_id
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('clerk_id', userId)
+      .single();
+
+    if (!userData) {
+      alert('Ошибка: пользователь не найден в БД');
+      setLoading(false);
       return;
     }
-    
-    setSending(true);
-    
-    const order = {
-      client_phone: data.phone,
-      tariff: data.tariff,
-      hourly_rate: data.tariff === 'hourly' ? parseInt(data.hourly_rate) : null,
-      fixed_budget: data.tariff === 'fixed' ? parseInt(data.fixed_budget) : null,
-      work_description: data.description,
-      address: address.text,
-      lat: address.lat,
-      lng: address.lng,
-      time_slot: new Date(data.date + 'T' + data.time).toISOString(),
-      status: 'open'
-    };
-    
-    const { data: result, error } = await supabase.from('orders').insert([order]).select();
-    
-    setSending(false);
-    
+
+    const { error } = await supabase.from('orders').insert({
+      client_id: userData.id,
+      title: form.title,
+      description: form.description,
+      address: form.address,
+      price: parseFloat(form.price),
+      status: 'pending'
+    });
+
     if (error) {
-      alert('❌ Ошибка: ' + error.message);
+      alert('Ошибка: ' + error.message);
     } else {
-      alert(`✅ Заказ #${result[0].id.slice(0, 8)} создан!\n\nСкоро с вами свяжутся грузчики`);
+      setForm({ title: '', description: '', address: '', price: '' });
+      onSuccess();
     }
-  };
+    setLoading(false);
+  }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
-      <div className="input-group">
-        <label>📱 ТЕЛЕФОН</label>
-        <input 
-          {...register('phone', { required: true })} 
-          placeholder="+7 (___)-___-__-__" 
-        />
-      </div>
-
-      <div className="input-group">
-        <label>💰 ТАРИФ</label>
-        <div className="tariff-group">
-          <div className="tariff-option">
-            <input type="radio" value="hourly" id="hourly" {...register('tariff')} />
-            <label htmlFor="hourly">⏱️ Почасовая</label>
-          </div>
-          <div className="tariff-option">
-            <input type="radio" value="fixed" id="fixed" {...register('tariff')} />
-            <label htmlFor="fixed">💰 Под ключ</label>
-          </div>
-        </div>
-      </div>
-
-      {tariff === 'hourly' ? (
-        <div className="input-group">
-          <label>⏱️ СТАВКА ЗА ЧАС</label>
-          <input 
-            {...register('hourly_rate', { required: true, min: 1 })} 
-            type="number" 
-            placeholder="500 ₽/час" 
-          />
-        </div>
-      ) : (
-        <div className="input-group">
-          <label>💰 БЮДЖЕТ</label>
-          <input 
-            {...register('fixed_budget', { required: true, min: 1 })} 
-            type="number" 
-            placeholder="3000 ₽" 
-          />
-        </div>
-      )}
-
-      <div className="input-group">
-        <label>📝 ОПИСАНИЕ</label>
-        <textarea 
-          {...register('description', { required: true })} 
-          placeholder="Что нужно сделать?" 
-          rows={3} 
-        />
-      </div>
-      
-      <div className="input-group">
-        <label>📍 АДРЕС</label>
-        <div className="map-wrapper">
-          <ClientOnlyMap onAddressSelect={(text: string, lat: number, lng: number) => setAddress({ text, lat, lng })} />
-        </div>
-        {address.text && <div className="address-chip">{address.text}</div>}
-      </div>
-
-      <div className="input-group">
-        <label>📅 ДАТА И ВРЕМЯ</label>
-        <div className="double-row">
-          <div>
-            <input {...register('date', { required: true })} type="date" />
-          </div>
-          <div>
-            <input {...register('time', { required: true })} type="time" />
-          </div>
-        </div>
-      </div>
-
-      <button type="submit" className="submit-btn" disabled={sending}>
-        {sending ? '⏳ Отправка...' : '🚀 Опубликовать заказ'}
+    <form onSubmit={handleSubmit} className="bg-gray-100 p-4 rounded-lg space-y-3">
+      <input
+        type="text"
+        placeholder="Название заказа"
+        value={form.title}
+        onChange={e => setForm({ ...form, title: e.target.value })}
+        className="w-full p-2 border rounded"
+        required
+      />
+      <textarea
+        placeholder="Описание"
+        value={form.description}
+        onChange={e => setForm({ ...form, description: e.target.value })}
+        className="w-full p-2 border rounded"
+        rows={3}
+      />
+      <input
+        type="text"
+        placeholder="Адрес"
+        value={form.address}
+        onChange={e => setForm({ ...form, address: e.target.value })}
+        className="w-full p-2 border rounded"
+        required
+      />
+      <input
+        type="number"
+        placeholder="Цена (₽)"
+        value={form.price}
+        onChange={e => setForm({ ...form, price: e.target.value })}
+        className="w-full p-2 border rounded"
+        required
+      />
+      <button
+        type="submit"
+        disabled={loading}
+        className="bg-blue-600 text-white px-6 py-2 rounded disabled:bg-gray-400"
+      >
+        {loading ? 'Создание...' : 'Создать заказ'}
       </button>
     </form>
   );
