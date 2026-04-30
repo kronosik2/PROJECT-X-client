@@ -21,21 +21,8 @@ export default function OrderForm({ userId, onSuccess }: Props) {
     e.preventDefault();
     setLoading(true);
 
-    // Получаем UUID из таблицы users по clerk_id
-    const { data: userData } = await supabase
-      .from('users')
-      .select('id')
-      .eq('clerk_id', userId)
-      .single();
-
-    if (!userData) {
-      alert('Ошибка: пользователь не найден в БД');
-      setLoading(false);
-      return;
-    }
-
     const { error } = await supabase.from('orders').insert({
-      client_id: userData.id,
+      client_id: userId,
       title: form.title,
       description: form.description,
       address: form.address,
