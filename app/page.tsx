@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
 // ⚠️ ВРЕМЕННО: вставь свой реальный ключ Яндекс.Карт
-const YMAPS_API_KEY = '634a4b7a-9223-4242-a550-70a59758ef72';
+const YMAPS_API_KEY = 634a4b7a-9223-4242-a550-70a59758ef72;
 
 declare global {
   interface Window {
