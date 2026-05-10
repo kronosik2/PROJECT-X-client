@@ -107,7 +107,7 @@ export default function OrderForm() {
         placeholder="Название заказа *"
         value={form.title}
         onChange={e => setForm({ ...form, title: e.target.value })}
-        className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+        className="input-glass w-full"
         required
       />
       
@@ -115,7 +115,7 @@ export default function OrderForm() {
         placeholder="Описание работ"
         value={form.description}
         onChange={e => setForm({ ...form, description: e.target.value })}
-        className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+        className="input-glass w-full"
         rows={3}
         required
       />
@@ -125,29 +125,31 @@ export default function OrderForm() {
         placeholder="Город"
         value={form.city}
         onChange={e => setForm({ ...form, city: e.target.value })}
-        className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+        className="input-glass w-full"
         required
       />
       
       <input
         type="text"
-        placeholder="Адрес"
+        placeholder="Адрес (выберите на карте)"
         value={form.address}
         readOnly
-        className="w-full px-4 py-2 border border-gray-200 rounded-xl bg-gray-50"
+        className="input-glass w-full bg-white/5 cursor-pointer"
         required
       />
       
-      <YandexMap onAddressSelect={handleAddressSelect} />
+      <div className="rounded-xl overflow-hidden border border-white/10">
+        <YandexMap onAddressSelect={handleAddressSelect} />
+      </div>
       
-      <div className="flex gap-4">
-        <label className="flex items-center gap-2">
-          <input type="radio" value="fixed" checked={form.tariff === 'fixed'} onChange={() => setForm({ ...form, tariff: 'fixed' })} />
-          Фикс-цена
+      <div className="flex gap-4 flex-wrap">
+        <label className="radio-glass flex items-center gap-2 cursor-pointer">
+          <input type="radio" value="fixed" checked={form.tariff === 'fixed'} onChange={() => setForm({ ...form, tariff: 'fixed' })} className="w-4 h-4" />
+          <span>Фикс-цена</span>
         </label>
-        <label className="flex items-center gap-2">
-          <input type="radio" value="hourly" checked={form.tariff === 'hourly'} onChange={() => setForm({ ...form, tariff: 'hourly' })} />
-          Почасовая
+        <label className="radio-glass flex items-center gap-2 cursor-pointer">
+          <input type="radio" value="hourly" checked={form.tariff === 'hourly'} onChange={() => setForm({ ...form, tariff: 'hourly' })} className="w-4 h-4" />
+          <span>Почасовая</span>
         </label>
       </div>
       
@@ -157,7 +159,7 @@ export default function OrderForm() {
           placeholder="Бюджет (₽)"
           value={form.fixed_budget}
           onChange={e => setForm({ ...form, fixed_budget: e.target.value })}
-          className="w-full px-4 py-2 border border-gray-200 rounded-xl"
+          className="input-glass w-full"
           required
         />
       ) : (
@@ -166,7 +168,7 @@ export default function OrderForm() {
           placeholder="Ставка за час (₽)"
           value={form.hourly_rate}
           onChange={e => setForm({ ...form, hourly_rate: e.target.value })}
-          className="w-full px-4 py-2 border border-gray-200 rounded-xl"
+          className="input-glass w-full"
           required
         />
       )}
@@ -176,29 +178,29 @@ export default function OrderForm() {
           type="datetime-local"
           value={form.time_slot}
           onChange={e => setForm({ ...form, time_slot: e.target.value })}
-          className="flex-1 px-4 py-2 border border-gray-200 rounded-xl"
+          className="input-glass flex-1"
         />
         <button
           type="button"
           onClick={setNearestTime}
-          className="px-4 py-2 bg-gray-200 rounded-xl hover:bg-gray-300"
+          className="px-4 py-2 bg-white/10 border border-white/20 rounded-xl hover:bg-white/20 transition-all"
         >
           🕐 Ближайшее
         </button>
       </div>
       
       {getDisplayPrice() > 0 && (
-        <div className="bg-blue-50 p-3 rounded-xl text-center">
-          <p className="text-sm text-gray-600">💰 Стоимость</p>
-          <p className="text-2xl font-bold text-blue-600">{getDisplayPrice()} ₽</p>
-          <p className="text-xs text-gray-500">резерв: {Math.max(getDisplayPrice() * 0.1, 200)} ₽</p>
+        <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-white/10 p-4 rounded-xl text-center">
+          <p className="text-sm text-white/60">💰 Стоимость</p>
+          <p className="text-3xl font-bold text-gradient">{getDisplayPrice()} ₽</p>
+          <p className="text-xs text-white/50 mt-1">резерв исполнителя: {Math.max(getDisplayPrice() * 0.1, 200)} ₽</p>
         </div>
       )}
       
       <button
         type="submit"
         disabled={loading}
-        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-xl font-semibold hover:shadow-lg"
+        className="btn-gradient w-full py-3 rounded-xl font-semibold disabled:opacity-50"
       >
         {loading ? 'Создание...' : 'Создать заказ'}
       </button>
