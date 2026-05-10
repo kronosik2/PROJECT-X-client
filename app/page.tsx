@@ -13,7 +13,8 @@ export default function ClientPage() {
   const [client, setClient] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<any[]>([]);
-  const mapRef = useRef<any>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<any>(null);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [form, setForm] = useState({
@@ -38,47 +39,53 @@ export default function ClientPage() {
     setLoading(false);
   }, []);
 
-  // Загружаем Яндекс карты отдельно
+  // Инициализация карты
   useEffect(() => {
-    const ymapsKey = process.env.NEXT_PUBLIC_YMAPS_KEY;
-    if (!ymapsKey) {
-      console.error('NEXT_PUBLIC_YMAPS_KEY не задан');
-      return;
-    }
-
-    // Проверяем, загружена ли уже карта
-    if (window.ymaps && window.ymaps.Map) {
-      initMap();
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = `https://api-maps.yandex.ru/2.1/?apikey=${ymapsKey}&lang=ru_RU`;
-    script.async = true;
-    script.onload = () => {
-      window.ymaps.ready(initMap);
+    const initMap = () => {
+      if (!mapRef.current || mapInstanceRef.current) return;
+      
+      try {
+        const map = new window.ymaps.Map(mapRef.current, {
+          center: [55.441, 65.341],
+          zoom: 12,
+          controls: ['zoomControl', 'fullscreenControl']
+        });
+        mapInstanceRef.current = map;
+        setMapLoaded(true);
+        console.log('Карта загружена');
+      } catch (error) {
+        console.error('Ошибка создания карты:', error);
+      }
     };
-    script.onerror = () => {
-      console.error('Ошибка загрузки Яндекс.Карт');
+
+    const loadYmaps = () => {
+      const ymapsKey = process.env.NEXT_PUBLIC_YMAPS_KEY;
+      if (!ymapsKey) {
+        console.error('NEXT_PUBLIC_YMAPS_KEY не задан');
+        return;
+      }
+
+      if (window.ymaps && window.ymaps.Map) {
+        window.ymaps.ready(initMap);
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = `https://api-maps.yandex.ru/2.1/?apikey=${ymapsKey}&lang=ru_RU`;
+      script.async = true;
+      script.onload = () => {
+        window.ymaps.ready(initMap);
+      };
+      script.onerror = () => {
+        console.error('Ошибка загрузки скрипта Яндекс.Карт');
+      };
+      document.body.appendChild(script);
     };
-    document.body.appendChild(script);
+
+    // Небольшая задержка для уверенности
+    const timer = setTimeout(loadYmaps, 100);
+    return () => clearTimeout(timer);
   }, []);
-
-  const initMap = () => {
-    if (!mapRef.current) return;
-    try {
-      const map = new window.ymaps.Map(mapRef.current, {
-        center: [55.441, 65.341], // Курган
-        zoom: 12,
-        controls: ['zoomControl', 'fullscreenControl']
-      });
-      mapRef.current.map = map;
-      setMapLoaded(true);
-      console.log('Карта загружена');
-    } catch (error) {
-      console.error('Ошибка инициализации карты:', error);
-    }
-  };
 
   async function fetchOrders(clientId: string) {
     const { data } = await supabase
@@ -150,14 +157,14 @@ export default function ClientPage() {
   const selectAddress = (address: any) => {
     setForm({ ...form, address: address.text });
     setSuggestions([]);
-    if (mapRef.current?.map) {
-      mapRef.current.map.setCenter(address.coordinates, 15);
-      if (mapRef.current.placemark) {
-        mapRef.current.map.geoObjects.remove(mapRef.current.placemark);
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.setCenter(address.coordinates, 15);
+      if (mapInstanceRef.current.placemark) {
+        mapInstanceRef.current.geoObjects.remove(mapInstanceRef.current.placemark);
       }
       const placemark = new window.ymaps.Placemark(address.coordinates, {}, { preset: 'islands#redIcon' });
-      mapRef.current.map.geoObjects.add(placemark);
-      mapRef.current.placemark = placemark;
+      mapInstanceRef.current.geoObjects.add(placemark);
+      mapInstanceRef.current.placemark = placemark;
     }
   };
 
@@ -255,7 +262,6 @@ export default function ClientPage() {
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Форма создания заказа */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <h2 className="text-xl font-bold mb-4 text-gray-800">📦 Создать заказ</h2>
           
@@ -303,13 +309,11 @@ export default function ClientPage() {
             </div>
             
             <div 
-              ref={(el) => {
-                if (el) mapRef.current = el;
-              }} 
-              className="h-64 rounded-xl overflow-hidden border border-gray-200 bg-gray-100"
+              ref={mapRef} 
+              className="h-64 rounded-xl overflow-hidden border border-gray-200 bg-gray-100 relative"
             >
               {!mapLoaded && (
-                <div className="flex items-center justify-center h-full text-gray-400">
+                <div className="absolute inset-0 flex items-center justify-center text-gray-400 bg-gray-50 z-10">
                   Загрузка карты...
                 </div>
               )}
@@ -379,7 +383,6 @@ export default function ClientPage() {
           </form>
         </div>
 
-        {/* Список заказов */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
           <h2 className="text-xl font-bold mb-4 text-gray-800">📋 Мои заказы</h2>
           <div className="space-y-3 max-h-[600px] overflow-auto">
@@ -410,7 +413,7 @@ export default function ClientPage() {
                     </span>
                   </div>
                   <p className="text-sm text-gray-600 mb-2">{order.description}</p>
-                  <p className="text-xs text-gray-500 mb-2">📍 {order.address}</p>
+                  <p className="text-xs text-gray-500 mb-2">📍 {order.address || order.city}</p>
                   <p className="text-lg font-bold text-blue-600">{order.price} ₽</p>
                 </div>
               );
