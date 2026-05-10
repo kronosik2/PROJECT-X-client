@@ -24,68 +24,58 @@ export default function OrdersPage() {
     }
   }, []);
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Загрузка...</div>;
+  const getStatusClass = (status: string) => {
+    switch (status) {
+      case 'pending': return 'status-pending';
+      case 'approved': return 'status-approved';
+      case 'confirmed': return 'status-confirmed';
+      case 'completed': return 'status-completed';
+      case 'cancelled': return 'status-cancelled';
+      default: return 'status-pending';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'pending': return 'Ожидает';
+      case 'approved': return 'Подтверждён';
+      case 'confirmed': return 'В работе';
+      case 'completed': return 'Выполнен';
+      case 'cancelled': return 'Отменён';
+      default: return 'Ожидает';
+    }
+  };
+
+  if (loading) return <div className="text-center py-20">Загрузка...</div>;
 
   return (
-    <div className="min-h-screen bg-gradient-custom">
-      <div className="max-w-4xl mx-auto p-4 py-8">
-        <div className="mb-6">
-          <Link href="/" className="text-blue-400 hover:text-blue-300 transition-colors">
-            ← На главную
-          </Link>
+    <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="mb-6">
+        <Link href="/" className="text-blue-600 hover:underline">← На главную</Link>
+      </div>
+      
+      <h1 className="text-3xl font-bold mb-6">📋 Мои заказы</h1>
+      
+      {orders.length === 0 && (
+        <div className="bg-white rounded-xl p-12 text-center shadow-sm">
+          <p className="text-gray-500">У вас пока нет заказов</p>
+          <Link href="/" className="inline-block mt-4 text-blue-600 hover:underline">Создать заказ</Link>
         </div>
-        
-        <h1 className="text-4xl font-bold text-gradient mb-8">📋 Мои заказы</h1>
-        
-        {orders.length === 0 && (
-          <div className="glass-card p-12 text-center">
-            <p className="text-white/60">У вас пока нет заказов</p>
-            <Link href="/" className="btn-gradient inline-block mt-4 px-6 py-2 rounded-full">
-              Создать заказ
-            </Link>
+      )}
+      
+      <div className="space-y-4">
+        {orders.map(order => (
+          <div key={order.id} className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+            <div className="flex justify-between items-start mb-2">
+              <h2 className="font-bold text-lg">{order.title}</h2>
+              <span className={`status-badge ${getStatusClass(order.status)}`}>{getStatusText(order.status)}</span>
+            </div>
+            <p className="text-gray-600 text-sm mb-2">{order.description}</p>
+            <p className="text-sm text-gray-500 mb-2">📍 {order.address}, {order.city}</p>
+            <p className="text-xl font-bold text-blue-600 mt-2">{order.price} ₽</p>
+            <p className="text-xs text-gray-400 mt-2">{new Date(order.created_at).toLocaleDateString('ru-RU')}</p>
           </div>
-        )}
-        
-        <div className="space-y-4">
-          {orders.map(order => {
-            const getStatusClass = () => {
-              switch (order.status) {
-                case 'pending': return 'status-pending';
-                case 'approved': return 'status-approved';
-                case 'confirmed': return 'status-confirmed';
-                case 'completed': return 'status-completed';
-                case 'cancelled': return 'status-cancelled';
-                default: return 'status-pending';
-              }
-            };
-            
-            const getStatusText = () => {
-              switch (order.status) {
-                case 'pending': return 'Ожидает';
-                case 'approved': return 'Подтверждён';
-                case 'confirmed': return 'В работе';
-                case 'completed': return 'Выполнен';
-                case 'cancelled': return 'Отменён';
-                default: return 'Ожидает';
-              }
-            };
-            
-            return (
-              <div key={order.id} className="glass-card p-5 hover:shadow-xl transition-all">
-                <div className="flex justify-between items-start mb-3 flex-wrap gap-2">
-                  <h2 className="text-xl font-bold">{order.title}</h2>
-                  <span className={getStatusClass()}>{getStatusText()}</span>
-                </div>
-                <p className="text-white/70 text-sm mb-2">{order.description}</p>
-                <p className="text-sm text-white/50 mb-2">📍 {order.address}, {order.city}</p>
-                <p className="text-2xl font-bold text-gradient mt-2">{order.price} ₽</p>
-                <p className="text-xs text-white/40 mt-2">
-                  {new Date(order.created_at).toLocaleDateString('ru-RU')}
-                </p>
-              </div>
-            );
-          })}
-        </div>
+        ))}
       </div>
     </div>
   );
