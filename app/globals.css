@@ -1,26 +1,33 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-body {
-  background: #f8fafc;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+.hero {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  text-align: center;
+  padding: 60px 20px;
+  margin-bottom: 40px;
 }
 
-input, textarea, select {
-  transition: all 0.2s ease;
+.hero h1 {
+  font-size: 48px;
+  margin: 20px 0 10px;
 }
 
-input:focus, textarea:focus, select:focus {
-  outline: none;
-  ring: 2px solid #3b82f6;
+.badge {
+  display: inline-block;
+  background: rgba(255,255,255,0.2);
+  padding: 6px 16px;
+  border-radius: 40px;
+  font-size: 14px;
 }
 
-button {
-  transition: all 0.2s ease;
+.form-wrapper {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 20px 60px;
 }
 
-button:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+.form-card {
+  background: white;
+  border-radius: 24px;
+  padding: 32px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.1);
 }
