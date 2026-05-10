@@ -38,7 +38,6 @@ export default function OrdersPage() {
     if (error) {
       alert('Ошибка: ' + error.message);
     } else {
-      // Удаляем все отклики на этот заказ
       await supabase.from('responses').delete().eq('order_id', orderId);
       alert('✅ Заказ отменён');
       const clientId = localStorage.getItem('client_id');
@@ -57,7 +56,6 @@ export default function OrdersPage() {
       return false;
     }
     
-    // Удаляем все отклики при редактировании
     await supabase.from('responses').delete().eq('order_id', orderId);
     return true;
   }
@@ -131,7 +129,6 @@ export default function OrdersPage() {
         {orders.map(order => (
           <div key={order.id} className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
             {editingOrder?.id === order.id ? (
-              // Режим редактирования
               <div className="space-y-3">
                 <textarea
                   className="w-full p-2 border rounded-lg"
@@ -200,7 +197,6 @@ export default function OrdersPage() {
                 </div>
               </div>
             ) : (
-              // Режим просмотра
               <>
                 <div className="flex justify-between items-start mb-2">
                   <h2 className="font-bold text-lg">{order.title}</h2>
