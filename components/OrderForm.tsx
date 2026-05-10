@@ -94,7 +94,7 @@ export default function OrderForm() {
       setFixedBudget('');
       setHourlyRate('');
       setTimeSlot('');
-      window.location.href = '/orders';
+      window.location.href = '/PROJECT-X-client/orders/';
     }
     setLoading(false);
   }
@@ -124,32 +124,38 @@ export default function OrderForm() {
       <div className="flex gap-4">
         <label className="flex items-center gap-2">
           <input type="radio" value="fixed" checked={tariff === 'fixed'} onChange={() => setTariff('fixed')} />
-          Фикс-цена
+          Фикс-цена (рекомендуем 2000 ₽ за работу)
         </label>
         <label className="flex items-center gap-2">
           <input type="radio" value="hourly" checked={tariff === 'hourly'} onChange={() => setTariff('hourly')} />
-          Почасовая
+          Почасовая (рекомендуем 400 ₽/час на человека)
         </label>
       </div>
       
       {tariff === 'fixed' ? (
-        <input
-          type="number"
-          placeholder="Бюджет (₽)"
-          value={fixedBudget}
-          onChange={e => setFixedBudget(e.target.value)}
-          className="input-style w-full"
-          required
-        />
+        <>
+          <input
+            type="number"
+            placeholder="Бюджет (₽)"
+            value={fixedBudget}
+            onChange={e => setFixedBudget(e.target.value)}
+            className="input-style w-full"
+            required
+          />
+          <p className="text-sm text-gray-500 mt-1">💰 Рекомендуемая цена: 2000 ₽</p>
+        </>
       ) : (
-        <input
-          type="number"
-          placeholder="Ставка за час (₽)"
-          value={hourlyRate}
-          onChange={e => setHourlyRate(e.target.value)}
-          className="input-style w-full"
-          required
-        />
+        <>
+          <input
+            type="number"
+            placeholder="Ставка за час (₽)"
+            value={hourlyRate}
+            onChange={e => setHourlyRate(e.target.value)}
+            className="input-style w-full"
+            required
+          />
+          <p className="text-sm text-gray-500 mt-1">💰 Рекомендуемая цена: 400 ₽/час</p>
+        </>
       )}
       
       <div className="flex gap-2">
@@ -172,7 +178,7 @@ export default function OrderForm() {
         <div className="bg-blue-50 p-4 rounded-xl text-center">
           <p className="text-sm text-gray-600">💰 Стоимость</p>
           <p className="text-2xl font-bold text-blue-600">{getDisplayPrice()} ₽</p>
-          <p className="text-xs text-gray-500 mt-1">резерв исполнителя: {Math.max(getDisplayPrice() * 0.1, 200)} ₽</p>
+          <p className="text-xs text-gray-500 mt-1">Исполнитель получит 100% от суммы</p>
         </div>
       )}
       
