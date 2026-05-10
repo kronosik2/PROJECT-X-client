@@ -111,7 +111,7 @@ export default function OrderForm() {
       setShiftPrice('');
       setWorkersCount(1);
       setTimeSlot('');
-      window.location.href = '/orders';
+      window.location.href = '/PROJECT-X-client/orders';
     }
     setLoading(false);
   }
