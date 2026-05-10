@@ -16,10 +16,9 @@ export default function ClientPage() {
   const mapRef = useRef<any>(null);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [form, setForm] = useState({
-    title: '',
     description: '',
     address: '',
-    city: '',
+    city: 'Курган',
     tariff: 'fixed',
     fixed_budget: '',
     hourly_rate: '',
@@ -37,17 +36,17 @@ export default function ClientPage() {
     }
     setLoading(false);
 
-    // Загружаем Яндекс карты с ключом из переменных окружения
+    // Загружаем Яндекс карты
     const script = document.createElement('script');
-    const ymapsKey = process.env.NEXT_PUBLIC_YMAPS_KEY || 'ваш_ключ_яндекс';
+    const ymapsKey = process.env.NEXT_PUBLIC_YMAPS_KEY;
     script.src = `https://api-maps.yandex.ru/2.1/?apikey=${ymapsKey}&lang=ru_RU`;
     script.async = true;
     script.onload = () => {
       window.ymaps.ready(() => {
         if (mapRef.current) {
           const map = new window.ymaps.Map(mapRef.current, {
-            center: [55.751574, 37.573856],
-            zoom: 10,
+            center: [55.441, 65.341], // Курган
+            zoom: 12,
             controls: ['zoomControl', 'fullscreenControl']
           });
           mapRef.current.map = map;
@@ -103,10 +102,11 @@ export default function ClientPage() {
 
   const handleAddressInput = async (value: string) => {
     setForm({ ...form, address: value });
-    if (value.length > 2) {
-      const ymapsKey = process.env.NEXT_PUBLIC_YMAPS_KEY || 'ваш_ключ_яндекс';
+    if (value.length > 2 && form.city) {
+      const ymapsKey = process.env.NEXT_PUBLIC_YMAPS_KEY;
+      const query = `${value}, ${form.city}`;
       const response = await fetch(
-        `https://geocode-maps.yandex.ru/1.x/?apikey=${ymapsKey}&geocode=${encodeURIComponent(value)}&format=json`
+        `https://geocode-maps.yandex.ru/1.x/?apikey=${ymapsKey}&geocode=${encodeURIComponent(query)}&format=json`
       );
       const data = await response.json();
       const addresses = data.response.GeoObjectCollection.featureMember.map((item: any) => ({
@@ -124,9 +124,21 @@ export default function ClientPage() {
     setSuggestions([]);
     if (mapRef.current?.map) {
       mapRef.current.map.setCenter(address.coordinates, 15);
-      new window.ymaps.Placemark(address.coordinates, {}, { preset: 'islands#redIcon' })
-        .addTo(mapRef.current.map);
+      if (mapRef.current.placemark) {
+        mapRef.current.map.geoObjects.remove(mapRef.current.placemark);
+      }
+      const placemark = new window.ymaps.Placemark(address.coordinates, {}, { preset: 'islands#redIcon' });
+      mapRef.current.map.geoObjects.add(placemark);
+      mapRef.current.placemark = placemark;
     }
+  };
+
+  const setNearestTime = () => {
+    const now = new Date();
+    now.setHours(now.getHours() + 1);
+    now.setMinutes(0);
+    const formatted = now.toISOString().slice(0, 16);
+    setForm({ ...form, time_slot: formatted });
   };
 
   async function createOrder(e: React.FormEvent) {
@@ -140,7 +152,7 @@ export default function ClientPage() {
 
     const insertData: any = {
       client_id: client.id,
-      title: form.title,
+      title: `${form.tariff === 'fixed' ? 'Фикс' : 'Почасовка'} - ${form.address}`,
       description: form.description,
       address: form.address,
       city: form.city,
@@ -163,10 +175,9 @@ export default function ClientPage() {
     } else {
       alert('✅ Заказ создан!');
       setForm({
-        title: '',
         description: '',
         address: '',
-        city: '',
+        city: 'Курган',
         tariff: 'fixed',
         fixed_budget: '',
         hourly_rate: '',
@@ -221,15 +232,6 @@ export default function ClientPage() {
           <h2 className="text-xl font-bold mb-4 text-gray-800">📦 Создать заказ</h2>
           
           <form onSubmit={createOrder} className="space-y-4">
-            <input
-              type="text"
-              placeholder="Название заказа"
-              value={form.title}
-              onChange={e => setForm({ ...form, title: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              required
-            />
-            
             <textarea
               placeholder="Описание работ"
               value={form.description}
@@ -310,12 +312,21 @@ export default function ClientPage() {
               />
             )}
             
-            <input
-              type="datetime-local"
-              value={form.time_slot}
-              onChange={e => setForm({ ...form, time_slot: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+            <div className="flex gap-2">
+              <input
+                type="datetime-local"
+                value={form.time_slot}
+                onChange={e => setForm({ ...form, time_slot: e.target.value })}
+                className="flex-1 px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <button
+                type="button"
+                onClick={setNearestTime}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-all"
+              >
+                🕐 Ближайшее
+              </button>
+            </div>
             
             {getDisplayPrice() > 0 && (
               <div className="bg-blue-50 p-3 rounded-xl text-center">
