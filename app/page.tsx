@@ -134,7 +134,7 @@ export default function ClientPage() {
   const handleAddressInput = async (value: string) => {
     setForm({ ...form, address: value });
     if (value.length > 2 && form.city) {
-      const ymapsKey = process.env.NEXT_PUBLIC_YMAPS_KEY;
+      const ymapsKey = 634a4b7a-9223-4242-a550-70a59758ef72;
       const query = `${value}, ${form.city}`;
       try {
         const response = await fetch(
