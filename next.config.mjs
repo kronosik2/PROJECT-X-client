@@ -5,6 +5,8 @@ const nextConfig = {
   basePath: '/PROJECT-X-client',
   assetPrefix: '/PROJECT-X-client',
   trailingSlash: true,
+  // Включаем кэширование статики
+  generateEtags: true,
 };
 
 export default nextConfig;
