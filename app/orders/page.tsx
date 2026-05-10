@@ -75,7 +75,8 @@ export default function OrdersPage() {
       fixed_budget: editingOrder.fixed_budget,
       hourly_rate: editingOrder.hourly_rate,
       price: editingOrder.price,
-      time_slot: editingOrder.time_slot
+      time_slot: editingOrder.time_slot,
+      workers_count: editingOrder.workers_count
     });
     
     if (success) {
@@ -113,7 +114,7 @@ export default function OrdersPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
       <div className="mb-6">
-        <Link href="/PROJECT-X-client/" className="text-blue-600 hover:underline">← На главную</Link>
+        <Link href="/" className="text-blue-600 hover:underline">← На главную</Link>
       </div>
       
       <h1 className="text-3xl font-bold mb-6">📋 Мои заказы</h1>
@@ -121,7 +122,7 @@ export default function OrdersPage() {
       {orders.length === 0 && (
         <div className="bg-white rounded-xl p-12 text-center shadow-sm">
           <p className="text-gray-500">У вас пока нет заказов</p>
-          <Link href="/PROJECT-X-client/" className="inline-block mt-4 text-blue-600 hover:underline">Создать заказ</Link>
+          <Link href="/" className="inline-block mt-4 text-blue-600 hover:underline">Создать заказ</Link>
         </div>
       )}
       
@@ -158,6 +159,7 @@ export default function OrdersPage() {
                   >
                     <option value="fixed">Фикс-цена</option>
                     <option value="hourly">Почасовая</option>
+                    <option value="shift">Смена</option>
                   </select>
                   {editingOrder.tariff === 'fixed' ? (
                     <input
@@ -205,6 +207,7 @@ export default function OrdersPage() {
                 <p className="text-gray-600 text-sm mb-2">{order.description}</p>
                 <p className="text-sm text-gray-500 mb-2">📍 {order.address}, {order.city}</p>
                 <p className="text-xl font-bold text-blue-600 mt-2">{order.price} ₽</p>
+                {order.workers_count && <p className="text-sm text-gray-500">👥 {order.workers_count} чел.</p>}
                 <p className="text-xs text-gray-400 mt-2">{new Date(order.created_at).toLocaleDateString('ru-RU')}</p>
                 
                 {order.status === 'pending' && (
