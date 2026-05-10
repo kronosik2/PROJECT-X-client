@@ -15,6 +15,7 @@ export default function ClientPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const mapRef = useRef<any>(null);
   const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [mapLoaded, setMapLoaded] = useState(false);
   const [form, setForm] = useState({
     description: '',
     address: '',
@@ -35,26 +36,49 @@ export default function ClientPage() {
         });
     }
     setLoading(false);
+  }, []);
 
-    // Загружаем Яндекс карты
-    const script = document.createElement('script');
+  // Загружаем Яндекс карты отдельно
+  useEffect(() => {
     const ymapsKey = process.env.NEXT_PUBLIC_YMAPS_KEY;
+    if (!ymapsKey) {
+      console.error('NEXT_PUBLIC_YMAPS_KEY не задан');
+      return;
+    }
+
+    // Проверяем, загружена ли уже карта
+    if (window.ymaps && window.ymaps.Map) {
+      initMap();
+      return;
+    }
+
+    const script = document.createElement('script');
     script.src = `https://api-maps.yandex.ru/2.1/?apikey=${ymapsKey}&lang=ru_RU`;
     script.async = true;
     script.onload = () => {
-      window.ymaps.ready(() => {
-        if (mapRef.current) {
-          const map = new window.ymaps.Map(mapRef.current, {
-            center: [55.441, 65.341], // Курган
-            zoom: 12,
-            controls: ['zoomControl', 'fullscreenControl']
-          });
-          mapRef.current.map = map;
-        }
-      });
+      window.ymaps.ready(initMap);
+    };
+    script.onerror = () => {
+      console.error('Ошибка загрузки Яндекс.Карт');
     };
     document.body.appendChild(script);
   }, []);
+
+  const initMap = () => {
+    if (!mapRef.current) return;
+    try {
+      const map = new window.ymaps.Map(mapRef.current, {
+        center: [55.441, 65.341], // Курган
+        zoom: 12,
+        controls: ['zoomControl', 'fullscreenControl']
+      });
+      mapRef.current.map = map;
+      setMapLoaded(true);
+      console.log('Карта загружена');
+    } catch (error) {
+      console.error('Ошибка инициализации карты:', error);
+    }
+  };
 
   async function fetchOrders(clientId: string) {
     const { data } = await supabase
@@ -105,15 +129,19 @@ export default function ClientPage() {
     if (value.length > 2 && form.city) {
       const ymapsKey = process.env.NEXT_PUBLIC_YMAPS_KEY;
       const query = `${value}, ${form.city}`;
-      const response = await fetch(
-        `https://geocode-maps.yandex.ru/1.x/?apikey=${ymapsKey}&geocode=${encodeURIComponent(query)}&format=json`
-      );
-      const data = await response.json();
-      const addresses = data.response.GeoObjectCollection.featureMember.map((item: any) => ({
-        text: item.GeoObject.metaDataProperty.GeocoderMetaData.text,
-        coordinates: item.GeoObject.Point.pos.split(' ').reverse()
-      }));
-      setSuggestions(addresses);
+      try {
+        const response = await fetch(
+          `https://geocode-maps.yandex.ru/1.x/?apikey=${ymapsKey}&geocode=${encodeURIComponent(query)}&format=json`
+        );
+        const data = await response.json();
+        const addresses = data.response.GeoObjectCollection.featureMember.map((item: any) => ({
+          text: item.GeoObject.metaDataProperty.GeocoderMetaData.text,
+          coordinates: item.GeoObject.Point.pos.split(' ').reverse()
+        }));
+        setSuggestions(addresses);
+      } catch (error) {
+        console.error('Ошибка геокодирования:', error);
+      }
     } else {
       setSuggestions([]);
     }
@@ -152,7 +180,7 @@ export default function ClientPage() {
 
     const insertData: any = {
       client_id: client.id,
-      title: `${form.tariff === 'fixed' ? 'Фикс' : 'Почасовка'} - ${form.address}`,
+      title: `${form.tariff === 'fixed' ? 'Фикс' : 'Почасовка'} - ${form.address || form.city}`,
       description: form.description,
       address: form.address,
       city: form.city,
@@ -278,8 +306,14 @@ export default function ClientPage() {
               ref={(el) => {
                 if (el) mapRef.current = el;
               }} 
-              className="h-64 rounded-xl overflow-hidden border border-gray-200"
-            ></div>
+              className="h-64 rounded-xl overflow-hidden border border-gray-200 bg-gray-100"
+            >
+              {!mapLoaded && (
+                <div className="flex items-center justify-center h-full text-gray-400">
+                  Загрузка карты...
+                </div>
+              )}
+            </div>
             
             <div className="flex gap-4">
               <label className="flex items-center gap-2">
