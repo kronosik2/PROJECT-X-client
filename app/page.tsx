@@ -148,7 +148,6 @@ export default function ClientPage() {
         </button>
       </div>
 
-      {/* Форма создания заказа */}
       <form onSubmit={createOrder} className="bg-gray-100 p-4 rounded-lg space-y-3">
         <h2 className="font-bold text-lg">📦 Новый заказ</h2>
         
@@ -231,7 +230,6 @@ export default function ClientPage() {
         </button>
       </form>
 
-      {/* Список заказов */}
       <div className="mt-8">
         <h2 className="text-xl font-bold mb-4">📋 Мои заказы</h2>
         {orders.length === 0 && <p className="text-gray-500">У вас пока нет заказов</p>}
