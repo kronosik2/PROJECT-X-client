@@ -272,7 +272,12 @@ export default function ClientPage() {
               )}
             </div>
             
-            <div ref={el => mapRef.current = el} className="h-64 rounded-xl overflow-hidden border border-gray-200"></div>
+            <div 
+              ref={(el) => {
+                if (el) mapRef.current = el;
+              }} 
+              className="h-64 rounded-xl overflow-hidden border border-gray-200"
+            ></div>
             
             <div className="flex gap-4">
               <label className="flex items-center gap-2">
