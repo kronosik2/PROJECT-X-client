@@ -7,6 +7,9 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingOrder, setEditingOrder] = useState<any>(null);
+  const [responses, setResponses] = useState<Record<string, any[]>>({});
+  const [ratingModal, setRatingModal] = useState<{ show: boolean; orderId: string; workerId: string }>({ show: false, orderId: '', workerId: '' });
+  const [ratingScore, setRatingScore] = useState(5);
 
   useEffect(() => {
     const clientId = localStorage.getItem('client_id');
@@ -24,25 +27,115 @@ export default function OrdersPage() {
       .eq('client_id', clientId)
       .order('created_at', { ascending: false });
     setOrders(data || []);
+    
+    // Загружаем отклики для каждого заказа со статусом pending
+    for (const order of data || []) {
+      if (order.status === 'pending') {
+        await loadResponses(order.id);
+      }
+    }
     setLoading(false);
+  }
+
+  async function loadResponses(orderId: string) {
+    const { data } = await supabase
+      .from('responses')
+      .select(`
+        id,
+        price_offer,
+        comment,
+        hold_amount,
+        status,
+        created_at,
+        worker:workers (id, name, phone, rating)
+      `)
+      .eq('order_id', orderId)
+      .eq('status', 'pending');
+    
+    if (data) {
+      setResponses(prev => ({ ...prev, [orderId]: data }));
+    }
+  }
+
+  async function selectResponse(responseId: string, orderId: string) {
+    if (!confirm('Выбрать этого исполнителя? Остальные отклики будут отклонены.')) return;
+    
+    const { data, error } = await supabase.rpc('select_response', {
+      p_response_id: responseId
+    });
+    
+    if (error) {
+      alert('Ошибка: ' + error.message);
+    } else if (data?.success === false) {
+      alert(data.error);
+    } else {
+      alert('✅ Исполнитель выбран. Ожидайте подтверждения.');
+      const clientId = localStorage.getItem('client_id');
+      if (clientId) loadOrders(clientId);
+    }
   }
 
   async function cancelOrder(orderId: string) {
     if (!confirm('Отменить заказ? Все отклики будут удалены.')) return;
     
-    const { error } = await supabase
-      .from('orders')
-      .update({ status: 'cancelled' })
-      .eq('id', orderId);
+    const clientId = localStorage.getItem('client_id');
+    const { error } = await supabase.rpc('cancel_order', {
+      p_order_id: orderId,
+      p_user_id: clientId,
+      p_role: 'client',
+      p_reason: 'Отменён клиентом'
+    });
     
     if (error) {
       alert('Ошибка: ' + error.message);
     } else {
-      await supabase.from('responses').delete().eq('order_id', orderId);
       alert('✅ Заказ отменён');
+      if (clientId) loadOrders(clientId);
+    }
+  }
+
+  async function confirmCompletion(orderId: string) {
+    if (!confirm('Подтверждаете выполнение заказа?')) return;
+    
+    const clientId = localStorage.getItem('client_id');
+    const { data, error } = await supabase.rpc('complete_order', {
+      p_order_id: orderId,
+      p_user_id: clientId,
+      p_role: 'client'
+    });
+    
+    if (error) {
+      alert('Ошибка: ' + error.message);
+    } else if (data?.success === false) {
+      alert(data.error);
+    } else {
+      setRatingModal({ show: true, orderId: orderId, workerId: '' });
       const clientId = localStorage.getItem('client_id');
       if (clientId) loadOrders(clientId);
     }
+  }
+
+  async function submitRating() {
+    // Получаем worker_id из заказа
+    const order = orders.find(o => o.id === ratingModal.orderId);
+    if (!order || !order.worker_id) return;
+    
+    const clientId = localStorage.getItem('client_id');
+    const { error } = await supabase.rpc('add_rating', {
+      p_order_id: ratingModal.orderId,
+      p_from_id: clientId,
+      p_to_id: order.worker_id,
+      p_role_from: 'client',
+      p_role_to: 'worker',
+      p_score: ratingScore
+    });
+    
+    if (error) {
+      alert('Ошибка: ' + error.message);
+    } else {
+      alert('✅ Спасибо за оценку!');
+    }
+    setRatingModal({ show: false, orderId: '', workerId: '' });
   }
 
   async function updateOrder(orderId: string, updatedData: any) {
@@ -56,6 +149,7 @@ export default function OrdersPage() {
       return false;
     }
     
+    // Удаляем все отклики при редактировании
     await supabase.from('responses').delete().eq('order_id', orderId);
     return true;
   }
@@ -100,11 +194,11 @@ export default function OrdersPage() {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'pending': return 'Ожидает';
-      case 'approved': return 'Подтверждён';
-      case 'confirmed': return 'В работе';
-      case 'completed': return 'Выполнен';
-      case 'cancelled': return 'Отменён';
+      case 'pending': return '⏳ Ожидает исполнителей';
+      case 'approved': return '👷 Исполнитель выбран, ожидает подтверждения';
+      case 'confirmed': return '🚚 В работе';
+      case 'completed': return '✅ Выполнен';
+      case 'cancelled': return '❌ Отменён';
       default: return 'Ожидает';
     }
   };
@@ -112,7 +206,7 @@ export default function OrdersPage() {
   if (loading) return <div className="text-center py-20">Загрузка...</div>;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
+    <div className="max-w-4xl mx-auto px-4 py-8">
       <div className="mb-6">
         <Link href="/" className="text-blue-600 hover:underline">← На главную</Link>
       </div>
@@ -126,7 +220,7 @@ export default function OrdersPage() {
         </div>
       )}
       
-      <div className="space-y-4">
+      <div className="space-y-6">
         {orders.map(order => (
           <div key={order.id} className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
             {editingOrder?.id === order.id ? (
@@ -161,37 +255,21 @@ export default function OrdersPage() {
                     <option value="hourly">Почасовая</option>
                     <option value="shift">Смена</option>
                   </select>
-                  {editingOrder.tariff === 'fixed' ? (
-                    <input
-                      type="number"
-                      className="flex-1 p-2 border rounded-lg"
-                      value={editingOrder.fixed_budget || ''}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value);
-                        setEditingOrder({
-                          ...editingOrder, 
-                          fixed_budget: val,
-                          price: val
-                        });
-                      }}
-                      placeholder="Бюджет"
-                    />
-                  ) : (
-                    <input
-                      type="number"
-                      className="flex-1 p-2 border rounded-lg"
-                      value={editingOrder.hourly_rate || ''}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value);
-                        setEditingOrder({
-                          ...editingOrder, 
-                          hourly_rate: val,
-                          price: val * 4
-                        });
-                      }}
-                      placeholder="Ставка за час"
-                    />
-                  )}
+                  <input
+                    type="number"
+                    className="flex-1 p-2 border rounded-lg"
+                    value={editingOrder.price || ''}
+                    onChange={(e) => setEditingOrder({...editingOrder, price: parseInt(e.target.value)})}
+                    placeholder="Цена"
+                  />
+                  <input
+                    type="number"
+                    className="w-24 p-2 border rounded-lg"
+                    value={editingOrder.workers_count || 1}
+                    onChange={(e) => setEditingOrder({...editingOrder, workers_count: parseInt(e.target.value)})}
+                    placeholder="Чел"
+                    min="1"
+                  />
                 </div>
                 <div className="flex gap-2">
                   <button onClick={saveEdit} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">Сохранить</button>
@@ -206,31 +284,90 @@ export default function OrdersPage() {
                 </div>
                 <p className="text-gray-600 text-sm mb-2">{order.description}</p>
                 <p className="text-sm text-gray-500 mb-2">📍 {order.address}, {order.city}</p>
-                <p className="text-xl font-bold text-blue-600 mt-2">{order.price} ₽</p>
-                {order.workers_count && <p className="text-sm text-gray-500">👥 {order.workers_count} чел.</p>}
-                <p className="text-xs text-gray-400 mt-2">{new Date(order.created_at).toLocaleDateString('ru-RU')}</p>
+                <p className="text-lg font-bold text-blue-600 mt-2">{order.price} ₽</p>
+                <p className="text-sm text-gray-500">👥 Требуется: {order.workers_count || 1} чел.</p>
                 
-                {order.status === 'pending' && (
-                  <div className="flex gap-3 mt-4">
-                    <button
-                      onClick={() => cancelOrder(order.id)}
-                      className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm"
-                    >
-                      ❌ Отменить
-                    </button>
-                    <button
-                      onClick={() => handleEdit(order)}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
-                    >
-                      ✏️ Редактировать
-                    </button>
+                {/* Отклики */}
+                {order.status === 'pending' && responses[order.id]?.length > 0 && (
+                  <div className="mt-4 border-t pt-3">
+                    <p className="font-semibold text-sm mb-2">📢 Отклики ({responses[order.id].length}):</p>
+                    <div className="space-y-2">
+                      {responses[order.id].map((resp: any) => (
+                        <div key={resp.id} className="bg-gray-50 p-3 rounded-lg flex justify-between items-center">
+                          <div className="text-sm">
+                            <p className="font-medium">{resp.worker?.name || 'Исполнитель'}</p>
+                            <p className="text-gray-500">⭐ {resp.worker?.rating || 5}</p>
+                            <p className="text-green-600 font-bold">💰 {resp.price_offer} ₽</p>
+                            {resp.comment && <p className="text-gray-400 text-xs">💬 {resp.comment}</p>}
+                          </div>
+                          <button
+                            onClick={() => selectResponse(resp.id, order.id)}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
+                          >
+                            Выбрать
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
+                
+                {/* Кнопки действий */}
+                <div className="flex gap-3 mt-4">
+                  {order.status === 'pending' && (
+                    <>
+                      <button
+                        onClick={() => cancelOrder(order.id)}
+                        className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 text-sm"
+                      >
+                        ❌ Отменить
+                      </button>
+                      <button
+                        onClick={() => handleEdit(order)}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
+                      >
+                        ✏️ Редактировать
+                      </button>
+                    </>
+                  )}
+                  {order.status === 'confirmed' && (
+                    <button
+                      onClick={() => confirmCompletion(order.id)}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm"
+                    >
+                      ✅ Подтвердить выполнение
+                    </button>
+                  )}
+                </div>
               </>
             )}
           </div>
         ))}
       </div>
+
+      {/* Модалка оценки */}
+      {ratingModal.show && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold mb-4">Оцените исполнителя</h3>
+            <div className="flex gap-2 justify-center mb-4">
+              {[1, 2, 3, 4, 5].map(star => (
+                <button
+                  key={star}
+                  onClick={() => setRatingScore(star)}
+                  className={`text-3xl ${star <= ratingScore ? 'text-yellow-500' : 'text-gray-300'}`}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-3">
+              <button onClick={submitRating} className="flex-1 bg-blue-600 text-white py-2 rounded-lg">Отправить</button>
+              <button onClick={() => setRatingModal({ show: false, orderId: '', workerId: '' })} className="flex-1 bg-gray-300 py-2 rounded-lg">Пропустить</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
