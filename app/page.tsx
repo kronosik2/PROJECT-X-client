@@ -3,6 +3,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
+// ⚠️ ВРЕМЕННО: вставь свой реальный ключ Яндекс.Карт
+const YMAPS_API_KEY = '634a4b7a-9223-4242-a550-70a59758ef72';
+
 declare global {
   interface Window {
     ymaps: any;
@@ -39,7 +42,6 @@ export default function ClientPage() {
     setLoading(false);
   }, []);
 
-  // Инициализация карты
   useEffect(() => {
     const initMap = () => {
       if (!mapRef.current || mapInstanceRef.current) return;
@@ -59,19 +61,13 @@ export default function ClientPage() {
     };
 
     const loadYmaps = () => {
-      const ymapsKey = process.env.NEXT_PUBLIC_YMAPS_KEY;
-      if (!ymapsKey) {
-        console.error('NEXT_PUBLIC_YMAPS_KEY не задан');
-        return;
-      }
-
       if (window.ymaps && window.ymaps.Map) {
         window.ymaps.ready(initMap);
         return;
       }
 
       const script = document.createElement('script');
-      script.src = `https://api-maps.yandex.ru/2.1/?apikey=${ymapsKey}&lang=ru_RU`;
+      script.src = `https://api-maps.yandex.ru/2.1/?apikey=${YMAPS_API_KEY}&lang=ru_RU`;
       script.async = true;
       script.onload = () => {
         window.ymaps.ready(initMap);
@@ -82,7 +78,6 @@ export default function ClientPage() {
       document.body.appendChild(script);
     };
 
-    // Небольшая задержка для уверенности
     const timer = setTimeout(loadYmaps, 100);
     return () => clearTimeout(timer);
   }, []);
@@ -134,11 +129,10 @@ export default function ClientPage() {
   const handleAddressInput = async (value: string) => {
     setForm({ ...form, address: value });
     if (value.length > 2 && form.city) {
-      const ymapsKey = 634a4b7a-9223-4242-a550-70a59758ef72;
       const query = `${value}, ${form.city}`;
       try {
         const response = await fetch(
-          `https://geocode-maps.yandex.ru/1.x/?apikey=${ymapsKey}&geocode=${encodeURIComponent(query)}&format=json`
+          `https://geocode-maps.yandex.ru/1.x/?apikey=${YMAPS_API_KEY}&geocode=${encodeURIComponent(query)}&format=json`
         );
         const data = await response.json();
         const addresses = data.response.GeoObjectCollection.featureMember.map((item: any) => ({
