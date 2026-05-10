@@ -11,17 +11,29 @@ export default function OrderForm() {
   const [tariff, setTariff] = useState('fixed');
   const [fixedBudget, setFixedBudget] = useState('');
   const [hourlyRate, setHourlyRate] = useState('');
+  const [shiftPrice, setShiftPrice] = useState('');
+  const [workersCount, setWorkersCount] = useState(1);
   const [timeSlot, setTimeSlot] = useState('');
   const [lat, setLat] = useState(55.441);
   const [lng, setLng] = useState(65.341);
 
+  const getRecommendedPrice = () => {
+    if (tariff === 'fixed') return 2000;
+    if (tariff === 'hourly') return 400;
+    if (tariff === 'shift') return 2500;
+    return 0;
+  };
+
   const getDisplayPrice = () => {
+    let basePrice = 0;
     if (tariff === 'fixed') {
-      return parseFloat(fixedBudget) || 0;
-    } else {
-      const rate = parseFloat(hourlyRate);
-      return rate ? rate * 4 : 0;
+      basePrice = parseFloat(fixedBudget) || 0;
+    } else if (tariff === 'hourly') {
+      basePrice = (parseFloat(hourlyRate) || 0) * 4;
+    } else if (tariff === 'shift') {
+      basePrice = parseFloat(shiftPrice) || 0;
     }
+    return basePrice * workersCount;
   };
 
   const setNearestTime = () => {
@@ -73,14 +85,17 @@ export default function OrderForm() {
       lng: lng,
       tariff: tariff,
       price: price,
+      workers_count: workersCount,
       time_slot: timeSlot || new Date().toISOString(),
       status: 'pending'
     };
 
     if (tariff === 'fixed') {
       insertData.fixed_budget = parseFloat(fixedBudget);
-    } else {
+    } else if (tariff === 'hourly') {
       insertData.hourly_rate = parseFloat(hourlyRate);
+    } else if (tariff === 'shift') {
+      insertData.fixed_budget = parseFloat(shiftPrice);
     }
 
     const { error } = await supabase.from('orders').insert(insertData);
@@ -93,8 +108,10 @@ export default function OrderForm() {
       setDescription('');
       setFixedBudget('');
       setHourlyRate('');
+      setShiftPrice('');
+      setWorkersCount(1);
       setTimeSlot('');
-      window.location.href = '/PROJECT-X-client/orders/';
+      window.location.href = '/orders';
     }
     setLoading(false);
   }
@@ -121,19 +138,23 @@ export default function OrderForm() {
       
       <YandexMap address={address} onAddressSelect={handleAddressSelect} />
       
-      <div className="flex gap-4">
-        <label className="flex items-center gap-2">
+      <div className="flex gap-4 flex-wrap">
+        <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50">
           <input type="radio" value="fixed" checked={tariff === 'fixed'} onChange={() => setTariff('fixed')} />
-          Фикс-цена (рекомендуем 2000 ₽ за работу)
+          Фикс-цена
         </label>
-        <label className="flex items-center gap-2">
+        <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50">
           <input type="radio" value="hourly" checked={tariff === 'hourly'} onChange={() => setTariff('hourly')} />
-          Почасовая (рекомендуем 400 ₽/час на человека)
+          Почасовая
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer p-2 rounded-lg hover:bg-gray-50">
+          <input type="radio" value="shift" checked={tariff === 'shift'} onChange={() => setTariff('shift')} />
+          Смена
         </label>
       </div>
       
       {tariff === 'fixed' ? (
-        <>
+        <div>
           <input
             type="number"
             placeholder="Бюджет (₽)"
@@ -143,19 +164,46 @@ export default function OrderForm() {
             required
           />
           <p className="text-sm text-gray-500 mt-1">💰 Рекомендуемая цена: 2000 ₽</p>
-        </>
-      ) : (
-        <>
+        </div>
+      ) : tariff === 'hourly' ? (
+        <div>
           <input
             type="number"
-            placeholder="Ставка за час (₽)"
+            placeholder="Ставка за час (₽) за человека"
             value={hourlyRate}
             onChange={e => setHourlyRate(e.target.value)}
             className="input-style w-full"
             required
           />
-          <p className="text-sm text-gray-500 mt-1">💰 Рекомендуемая цена: 400 ₽/час</p>
-        </>
+          <p className="text-sm text-gray-500 mt-1">💰 Рекомендуемая цена: 400 ₽/час за человека</p>
+        </div>
+      ) : (
+        <div>
+          <input
+            type="number"
+            placeholder="Цена за смену (₽)"
+            value={shiftPrice}
+            onChange={e => setShiftPrice(e.target.value)}
+            className="input-style w-full"
+            required
+          />
+          <p className="text-sm text-gray-500 mt-1">💰 Рекомендуемая цена: 2500 ₽</p>
+        </div>
+      )}
+      
+      {(tariff === 'hourly' || tariff === 'shift') && (
+        <div>
+          <input
+            type="number"
+            placeholder="Количество человек"
+            value={workersCount}
+            onChange={e => setWorkersCount(Math.max(1, parseInt(e.target.value) || 1))}
+            className="input-style w-full"
+            min="1"
+            required
+          />
+          <p className="text-sm text-gray-500 mt-1">👥 {workersCount} человек × {tariff === 'hourly' ? `${hourlyRate || 0} ₽/час` : `${shiftPrice || 0} ₽`}</p>
+        </div>
       )}
       
       <div className="flex gap-2">
@@ -176,9 +224,8 @@ export default function OrderForm() {
       
       {getDisplayPrice() > 0 && (
         <div className="bg-blue-50 p-4 rounded-xl text-center">
-          <p className="text-sm text-gray-600">💰 Стоимость</p>
+          <p className="text-sm text-gray-600">💰 Итого к оплате</p>
           <p className="text-2xl font-bold text-blue-600">{getDisplayPrice()} ₽</p>
-          <p className="text-xs text-gray-500 mt-1">Исполнитель получит 100% от суммы</p>
         </div>
       )}
       
