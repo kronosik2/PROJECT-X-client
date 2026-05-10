@@ -14,7 +14,6 @@ export default function ClientPage() {
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<any[]>([]);
   const mapRef = useRef<any>(null);
-  const [selectedAddress, setSelectedAddress] = useState('');
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [form, setForm] = useState({
     title: '',
@@ -38,9 +37,10 @@ export default function ClientPage() {
     }
     setLoading(false);
 
-    // Загружаем Яндекс карты
+    // Загружаем Яндекс карты с ключом из переменных окружения
     const script = document.createElement('script');
-    script.src = 'https://api-maps.yandex.ru/2.1/?apikey=634a4b7a-9223-4242-a550-70a59758ef72&lang=ru_RU';
+    const ymapsKey = process.env.NEXT_PUBLIC_YMAPS_KEY || 'ваш_ключ_яндекс';
+    script.src = `https://api-maps.yandex.ru/2.1/?apikey=${ymapsKey}&lang=ru_RU`;
     script.async = true;
     script.onload = () => {
       window.ymaps.ready(() => {
@@ -104,8 +104,9 @@ export default function ClientPage() {
   const handleAddressInput = async (value: string) => {
     setForm({ ...form, address: value });
     if (value.length > 2) {
+      const ymapsKey = process.env.NEXT_PUBLIC_YMAPS_KEY || 'ваш_ключ_яндекс';
       const response = await fetch(
-        `https://geocode-maps.yandex.ru/1.x/?apikey=ваш_ключ_яндекс&geocode=${encodeURIComponent(value)}&format=json`
+        `https://geocode-maps.yandex.ru/1.x/?apikey=${ymapsKey}&geocode=${encodeURIComponent(value)}&format=json`
       );
       const data = await response.json();
       const addresses = data.response.GeoObjectCollection.featureMember.map((item: any) => ({
