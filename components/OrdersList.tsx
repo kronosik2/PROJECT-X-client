@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import Link from 'next/link';
 
 interface OrdersListProps {
   clientId: string;
@@ -31,7 +30,6 @@ export default function OrdersList({ clientId, refreshKey }: OrdersListProps) {
     const pendingOrders = (data || []).filter(o => o.status === 'pending');
     
     for (let i = 0; i < pendingOrders.length; i++) {
-      await new Promise(resolve => setTimeout(resolve, 100));
       await loadResponses(pendingOrders[i].id);
       await loadSelectedCount(pendingOrders[i].id);
     }
@@ -192,12 +190,6 @@ export default function OrdersList({ clientId, refreshKey }: OrdersListProps) {
     return (
       <div className="bg-white rounded-xl p-12 text-center shadow-sm">
         <p className="text-gray-500">У вас пока нет заказов</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="inline-block mt-4 text-blue-600 hover:underline"
-        >
-          Создать заказ
-        </button>
       </div>
     );
   }
