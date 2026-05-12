@@ -18,19 +18,44 @@ export default function OrdersList({ clientId, refreshKey }: OrdersListProps) {
   async function loadOrders() {
     setLoading(true);
     
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
+    const cacheKey = `orders_${clientId}`;
+    const cached = localStorage.getItem(cacheKey);
+    const cachedTime = localStorage.getItem(`${cacheKey}_time`);
     
-    if (error) {
-      console.error('Error:', error);
-    } else {
-      setOrders(data || []);
+    // Если кэш свежий (менее 30 секунд) — показываем сразу
+    if (cached && cachedTime && Date.now() - parseInt(cachedTime) < 30000) {
+      console.log('Using cached orders');
+      setOrders(JSON.parse(cached));
+      setLoading(false);
+      
+      // В фоне обновляем
+      fetchFreshOrders(clientId, cacheKey);
+      return;
     }
     
-    setLoading(false);
+    await fetchFreshOrders(clientId, cacheKey);
+  }
+  
+  async function fetchFreshOrders(clientId: string, cacheKey: string) {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('client_id', clientId)
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error:', error);
+      } else {
+        setOrders(data || []);
+        localStorage.setItem(cacheKey, JSON.stringify(data));
+        localStorage.setItem(`${cacheKey}_time`, Date.now().toString());
+      }
+    } catch (err) {
+      console.error('Fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (loading) {
