@@ -14,61 +14,79 @@ export default function OrdersList({ clientId, refreshKey }: OrdersListProps) {
   const [selectedWorkers, setSelectedWorkers] = useState<Record<string, number>>({});
 
   useEffect(() => {
+    console.log('OrdersList mounted, clientId:', clientId, 'refreshKey:', refreshKey);
     loadOrders();
   }, [clientId, refreshKey]);
 
   async function loadOrders() {
+    console.log('loadOrders started');
     setLoading(true);
-    const { data } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: false });
     
-    setOrders(data || []);
-    
-    const pendingOrders = (data || []).filter(o => o.status === 'pending');
-    
-    for (let i = 0; i < pendingOrders.length; i++) {
-      await loadResponses(pendingOrders[i].id);
-      await loadSelectedCount(pendingOrders[i].id);
+    try {
+      // Сначала загружаем заказы
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('client_id', clientId)
+        .order('created_at', { ascending: false });
+      
+      if (ordersError) {
+        console.error('Orders error:', ordersError);
+        setLoading(false);
+        return;
+      }
+      
+      console.log('Orders loaded:', ordersData?.length);
+      setOrders(ordersData || []);
+      
+      // Затем загружаем отклики для pending заказов
+      const pendingOrders = (ordersData || []).filter(o => o.status === 'pending');
+      console.log('Pending orders:', pendingOrders.length);
+      
+      for (const order of pendingOrders) {
+        console.log('Loading responses for order:', order.id);
+        
+        // Загружаем отклики
+        const { data: responsesData } = await supabase
+          .from('responses')
+          .select(`
+            id,
+            price_offer,
+            comment,
+            hold_amount,
+            status,
+            is_selected,
+            is_rejected,
+            created_at,
+            workers_count,
+            worker:workers (id, name, phone, rating)
+          `)
+          .eq('order_id', order.id)
+          .in('status', ['pending', 'approved']);
+        
+        if (responsesData) {
+          setResponses(prev => ({ ...prev, [order.id]: responsesData }));
+        }
+        
+        // Загружаем выбранное количество
+        const { data: countData } = await supabase
+          .from('orders')
+          .select('selected_workers_count')
+          .eq('id', order.id)
+          .single();
+        
+        if (countData) {
+          setSelectedWorkers(prev => ({ ...prev, [order.id]: countData.selected_workers_count || 0 }));
+        }
+      }
+      
+      console.log('All data loaded');
+    } catch (err) {
+      console.error('Unexpected error:', err);
     }
     
     setLoading(false);
-  }
-
-  async function loadResponses(orderId: string) {
-    const { data } = await supabase
-      .from('responses')
-      .select(`
-        id,
-        price_offer,
-        comment,
-        hold_amount,
-        status,
-        is_selected,
-        is_rejected,
-        created_at,
-        workers_count,
-        worker:workers (id, name, phone, rating)
-      `)
-      .eq('order_id', orderId)
-      .in('status', ['pending', 'approved']);
-    
-    if (data) {
-      setResponses(prev => ({ ...prev, [orderId]: data }));
-    }
-  }
-
-  async function loadSelectedCount(orderId: string) {
-    const { data } = await supabase
-      .from('orders')
-      .select('selected_workers_count')
-      .eq('id', orderId)
-      .single();
-    if (data) {
-      setSelectedWorkers(prev => ({ ...prev, [orderId]: data.selected_workers_count || 0 }));
-    }
+    console.log('loadOrders finished');
   }
 
   async function selectResponse(responseId: string, orderId: string, workersCount: number) {
@@ -93,7 +111,28 @@ export default function OrdersList({ clientId, refreshKey }: OrdersListProps) {
       .eq('id', orderId);
     
     setSelectedWorkers(prev => ({ ...prev, [orderId]: newTotal }));
-    await loadResponses(orderId);
+    
+    // Обновляем отклики
+    const { data: responsesData } = await supabase
+      .from('responses')
+      .select(`
+        id,
+        price_offer,
+        comment,
+        hold_amount,
+        status,
+        is_selected,
+        is_rejected,
+        created_at,
+        workers_count,
+        worker:workers (id, name, phone, rating)
+      `)
+      .eq('order_id', orderId)
+      .in('status', ['pending', 'approved']);
+    
+    if (responsesData) {
+      setResponses(prev => ({ ...prev, [orderId]: responsesData }));
+    }
     
     if (newTotal >= order.workers_count) {
       alert(`✅ Набрано ${newTotal} из ${order.workers_count} человек! Можно утверждать заказ.`);
@@ -106,7 +145,26 @@ export default function OrdersList({ clientId, refreshKey }: OrdersListProps) {
       .update({ is_rejected: true, status: 'rejected' })
       .eq('id', responseId);
     
-    await loadResponses(orderId);
+    const { data: responsesData } = await supabase
+      .from('responses')
+      .select(`
+        id,
+        price_offer,
+        comment,
+        hold_amount,
+        status,
+        is_selected,
+        is_rejected,
+        created_at,
+        workers_count,
+        worker:workers (id, name, phone, rating)
+      `)
+      .eq('order_id', orderId)
+      .in('status', ['pending', 'approved']);
+    
+    if (responsesData) {
+      setResponses(prev => ({ ...prev, [orderId]: responsesData }));
+    }
   }
 
   async function approveOrder(orderId: string) {
