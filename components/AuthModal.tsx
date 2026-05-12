@@ -3,21 +3,20 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
 interface AuthModalProps {
-  onLogin: (client: any) => void;
+  role: 'client' | 'worker';
+  onLogin: (user: any) => void;
 }
 
-export default function AuthModal({ onLogin }: AuthModalProps) {
+export default function AuthModal({ role, onLogin }: AuthModalProps) {
   const [step, setStep] = useState<'phone' | 'code'>('phone');
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
-  const [generatedCode, setGeneratedCode] = useState('');
 
-  // Временная заглушка отправки SMS
+  // Временная заглушка
   const sendSmsCode = async (phoneNumber: string) => {
-    // В реальном проекте здесь будет запрос к API
     const mockCode = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedCode(mockCode);
+    localStorage.setItem(`verify_${phoneNumber}`, mockCode);
     console.log(`📱 Код для ${phoneNumber}: ${mockCode}`);
     alert(`Тестовый режим: ваш код ${mockCode}`);
     return mockCode;
@@ -30,9 +29,7 @@ export default function AuthModal({ onLogin }: AuthModalProps) {
     }
     
     setLoading(true);
-    const code = await sendSmsCode(phone);
-    // Временно сохраняем код для проверки
-    localStorage.setItem(`verify_${phone}`, code);
+    await sendSmsCode(phone);
     setStep('code');
     setLoading(false);
   };
@@ -51,24 +48,33 @@ export default function AuthModal({ onLogin }: AuthModalProps) {
 
     setLoading(true);
     
-    // Ищем или создаём клиента
+    const table = role === 'client' ? 'clients' : 'workers';
     let { data: existing } = await supabase
-      .from('clients')
+      .from(table)
       .select('*')
       .eq('phone', phone)
       .single();
 
     if (!existing) {
-      const { data: newClient } = await supabase
-        .from('clients')
-        .insert({ phone, name: phone })
-        .select()
-        .single();
-      existing = newClient;
+      if (role === 'client') {
+        const { data: newClient } = await supabase
+          .from(table)
+          .insert({ phone, name: phone })
+          .select()
+          .single();
+        existing = newClient;
+      } else {
+        const { data: newWorker } = await supabase
+          .from(table)
+          .insert({ phone, name: phone, age: 25, balance: 500 })
+          .select()
+          .single();
+        existing = newWorker;
+      }
     }
 
     if (existing) {
-      localStorage.setItem('client_id', existing.id);
+      localStorage.setItem(role === 'client' ? 'client_id' : 'worker_id', existing.id);
       localStorage.removeItem(`verify_${phone}`);
       onLogin(existing);
     }
@@ -79,17 +85,21 @@ export default function AuthModal({ onLogin }: AuthModalProps) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full mx-4">
-        <h2 className="text-2xl font-bold text-center mb-6">🤝 ПРОЕКТ X</h2>
+        <h2 className="text-2xl font-bold text-center mb-6">
+          {role === 'client' ? '🤝 ПРОЕКТ X' : '👷 ПРОЕКТ X'}
+        </h2>
         
         {step === 'phone' ? (
           <>
-            <p className="text-gray-600 text-center mb-6">Введите номер телефона</p>
+            <p className="text-gray-600 text-center mb-6">
+              {role === 'client' ? 'Вход для клиентов' : 'Вход для исполнителей'}
+            </p>
             <input
               type="tel"
               placeholder="+7 (999) 123-45-67"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-lg"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 text-center text-lg"
               autoFocus
             />
             <button
@@ -111,7 +121,7 @@ export default function AuthModal({ onLogin }: AuthModalProps) {
               placeholder="000000"
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-2xl tracking-widest"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 text-center text-2xl tracking-widest"
               maxLength={6}
               autoFocus
             />
