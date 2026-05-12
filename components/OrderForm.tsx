@@ -3,7 +3,12 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import YandexMap from './YandexMap';
 
-export default function OrderForm() {
+interface OrderFormProps {
+  clientId: string;
+  onSuccess: () => void;
+}
+
+export default function OrderForm({ clientId, onSuccess }: OrderFormProps) {
   const [loading, setLoading] = useState(false);
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('Курган');
@@ -68,15 +73,8 @@ export default function OrderForm() {
       return;
     }
 
-    const saved = localStorage.getItem('client_id');
-    if (!saved) {
-      alert('Клиент не найден');
-      setLoading(false);
-      return;
-    }
-
     const insertData: any = {
-      client_id: saved,
+      client_id: clientId,
       title: `Заказ от ${new Date().toLocaleDateString()}`,
       description: description,
       address: address,
@@ -111,7 +109,7 @@ export default function OrderForm() {
       setShiftPrice('');
       setWorkersCount(1);
       setTimeSlot('');
-      window.location.href = '/PROJECT-X-client/orders';
+      onSuccess(); // вызываем обновление списка заказов
     }
     setLoading(false);
   }
