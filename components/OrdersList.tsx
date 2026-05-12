@@ -11,6 +11,7 @@ export default function OrdersList({ clientId, refreshKey }: OrdersListProps) {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [responses, setResponses] = useState<Record<string, any[]>>({});
+  const [workers, setWorkers] = useState<Record<string, any>>({});
   const [selectedWorkers, setSelectedWorkers] = useState<Record<string, number>>({});
 
   useEffect(() => {
@@ -20,7 +21,7 @@ export default function OrdersList({ clientId, refreshKey }: OrdersListProps) {
   async function loadOrders() {
     setLoading(true);
     
-    // Загружаем заказы
+    // 1. Загружаем заказы
     const { data: ordersData, error: ordersError } = await supabase
       .from('orders')
       .select('*')
@@ -35,52 +36,51 @@ export default function OrdersList({ clientId, refreshKey }: OrdersListProps) {
     
     setOrders(ordersData || []);
     
-    // Загружаем отклики для pending заказов
+    // 2. Загружаем отклики для pending заказов
     const pendingOrders = (ordersData || []).filter(o => o.status === 'pending');
     
     for (const order of pendingOrders) {
-      try {
-        // Загружаем отклики
-        const { data: responsesData } = await supabase
-          .from('responses')
-          .select(`
-            id,
-            price_offer,
-            comment,
-            hold_amount,
-            status,
-            is_selected,
-            is_rejected,
-            created_at,
-            workers_count,
-            worker:workers (id, name, phone, rating)
-          `)
-          .eq('order_id', order.id)
-          .in('status', ['pending', 'approved']);
+      // Загружаем отклики без вложенного worker
+      const { data: responsesData } = await supabase
+        .from('responses')
+        .select('*')
+        .eq('order_id', order.id)
+        .in('status', ['pending', 'approved']);
+      
+      if (responsesData && responsesData.length > 0) {
+        setResponses(prev => ({ ...prev, [order.id]: responsesData }));
         
-        if (responsesData) {
-          setResponses(prev => ({ ...prev, [order.id]: responsesData }));
+        // Загружаем данные о воркерах отдельно
+        for (const resp of responsesData) {
+          if (resp.worker_id && !workers[resp.worker_id]) {
+            const { data: workerData } = await supabase
+              .from('workers')
+              .select('id, name, phone, rating')
+              .eq('id', resp.worker_id)
+              .single();
+            if (workerData) {
+              setWorkers(prev => ({ ...prev, [resp.worker_id]: workerData }));
+            }
+          }
         }
-        
-        // Загружаем выбранное количество
-        const { data: countData } = await supabase
-          .from('orders')
-          .select('selected_workers_count')
-          .eq('id', order.id)
-          .single();
-        
-        if (countData) {
-          setSelectedWorkers(prev => ({ ...prev, [order.id]: countData.selected_workers_count || 0 }));
-        }
-      } catch (err) {
-        console.error('Error loading responses for order', order.id, err);
+      }
+      
+      // Загружаем выбранное количество
+      const { data: countData } = await supabase
+        .from('orders')
+        .select('selected_workers_count')
+        .eq('id', order.id)
+        .single();
+      
+      if (countData) {
+        setSelectedWorkers(prev => ({ ...prev, [order.id]: countData.selected_workers_count || 0 }));
       }
     }
     
     setLoading(false);
   }
 
-  async function selectResponse(responseId: string, orderId: string, workersCount: number) {
+  async function selectResponse(responseId: string, orderId: string, workerId: string, workersCount: number) {
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
     
@@ -103,26 +103,29 @@ export default function OrdersList({ clientId, refreshKey }: OrdersListProps) {
     
     setSelectedWorkers(prev => ({ ...prev, [orderId]: newTotal }));
     
-    // Обновляем отклики для этого заказа
+    // Обновляем отклики
     const { data: responsesData } = await supabase
       .from('responses')
-      .select(`
-        id,
-        price_offer,
-        comment,
-        hold_amount,
-        status,
-        is_selected,
-        is_rejected,
-        created_at,
-        workers_count,
-        worker:workers (id, name, phone, rating)
-      `)
+      .select('*')
       .eq('order_id', orderId)
       .in('status', ['pending', 'approved']);
     
     if (responsesData) {
       setResponses(prev => ({ ...prev, [orderId]: responsesData }));
+      
+      // Загружаем данные о новых воркерах
+      for (const resp of responsesData) {
+        if (resp.worker_id && !workers[resp.worker_id]) {
+          const { data: workerData } = await supabase
+            .from('workers')
+            .select('id, name, phone, rating')
+            .eq('id', resp.worker_id)
+            .single();
+          if (workerData) {
+            setWorkers(prev => ({ ...prev, [resp.worker_id]: workerData }));
+          }
+        }
+      }
     }
     
     if (newTotal >= order.workers_count) {
@@ -138,18 +141,7 @@ export default function OrdersList({ clientId, refreshKey }: OrdersListProps) {
     
     const { data: responsesData } = await supabase
       .from('responses')
-      .select(`
-        id,
-        price_offer,
-        comment,
-        hold_amount,
-        status,
-        is_selected,
-        is_rejected,
-        created_at,
-        workers_count,
-        worker:workers (id, name, phone, rating)
-      `)
+      .select('*')
       .eq('order_id', orderId)
       .in('status', ['pending', 'approved']);
     
@@ -228,7 +220,7 @@ export default function OrdersList({ clientId, refreshKey }: OrdersListProps) {
       case 'approved': return '👷 Утверждён';
       case 'confirmed': return '🚚 В работе';
       case 'completed': return '✅ Выполнен';
-      case 'cancelled': return '❌ Отменён';
+      case 'cancelled': return '❌ Отменен';
       default: return 'Ожидает';
     }
   };
@@ -263,11 +255,12 @@ export default function OrdersList({ clientId, refreshKey }: OrdersListProps) {
               <div className="space-y-2">
                 {responses[order.id].map((resp: any) => {
                   if (resp.is_rejected) return null;
+                  const worker = workers[resp.worker_id];
                   return (
                     <div key={resp.id} className={`p-3 rounded-lg flex justify-between items-center ${resp.is_selected ? 'bg-green-50 border border-green-200' : 'bg-gray-50'}`}>
                       <div className="text-sm">
-                        <p className="font-medium">{resp.worker?.name || 'Исполнитель'}</p>
-                        <p className="text-gray-500">⭐ {resp.worker?.rating || 5}</p>
+                        <p className="font-medium">{worker?.name || 'Исполнитель'}</p>
+                        <p className="text-gray-500">⭐ {worker?.rating || 5}</p>
                         <p className="text-green-600 font-bold">💰 {resp.price_offer} ₽</p>
                         <p className="text-gray-400 text-xs">👥 {resp.workers_count || 1} чел.</p>
                         {resp.comment && <p className="text-gray-400 text-xs">💬 {resp.comment}</p>}
@@ -276,7 +269,7 @@ export default function OrdersList({ clientId, refreshKey }: OrdersListProps) {
                         {!resp.is_selected ? (
                           <>
                             <button
-                              onClick={() => selectResponse(resp.id, order.id, resp.workers_count || 1)}
+                              onClick={() => selectResponse(resp.id, order.id, resp.worker_id, resp.workers_count || 1)}
                               className="bg-green-600 text-white px-3 py-1 rounded-lg text-sm hover:bg-green-700"
                             >
                               ✔ Выбрать
