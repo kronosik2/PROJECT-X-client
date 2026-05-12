@@ -14,38 +14,32 @@ export default function OrdersList({ clientId, refreshKey }: OrdersListProps) {
   const [selectedWorkers, setSelectedWorkers] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    console.log('OrdersList mounted, clientId:', clientId, 'refreshKey:', refreshKey);
     loadOrders();
   }, [clientId, refreshKey]);
 
   async function loadOrders() {
-    console.log('loadOrders started');
     setLoading(true);
     
-    try {
-      // Сначала загружаем заказы
-      const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('client_id', clientId)
-        .order('created_at', { ascending: false });
-      
-      if (ordersError) {
-        console.error('Orders error:', ordersError);
-        setLoading(false);
-        return;
-      }
-      
-      console.log('Orders loaded:', ordersData?.length);
-      setOrders(ordersData || []);
-      
-      // Затем загружаем отклики для pending заказов
-      const pendingOrders = (ordersData || []).filter(o => o.status === 'pending');
-      console.log('Pending orders:', pendingOrders.length);
-      
-      for (const order of pendingOrders) {
-        console.log('Loading responses for order:', order.id);
-        
+    // Загружаем заказы
+    const { data: ordersData, error: ordersError } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+    
+    if (ordersError) {
+      console.error('Orders error:', ordersError);
+      setLoading(false);
+      return;
+    }
+    
+    setOrders(ordersData || []);
+    
+    // Загружаем отклики для pending заказов
+    const pendingOrders = (ordersData || []).filter(o => o.status === 'pending');
+    
+    for (const order of pendingOrders) {
+      try {
         // Загружаем отклики
         const { data: responsesData } = await supabase
           .from('responses')
@@ -78,15 +72,12 @@ export default function OrdersList({ clientId, refreshKey }: OrdersListProps) {
         if (countData) {
           setSelectedWorkers(prev => ({ ...prev, [order.id]: countData.selected_workers_count || 0 }));
         }
+      } catch (err) {
+        console.error('Error loading responses for order', order.id, err);
       }
-      
-      console.log('All data loaded');
-    } catch (err) {
-      console.error('Unexpected error:', err);
     }
     
     setLoading(false);
-    console.log('loadOrders finished');
   }
 
   async function selectResponse(responseId: string, orderId: string, workersCount: number) {
@@ -112,7 +103,7 @@ export default function OrdersList({ clientId, refreshKey }: OrdersListProps) {
     
     setSelectedWorkers(prev => ({ ...prev, [orderId]: newTotal }));
     
-    // Обновляем отклики
+    // Обновляем отклики для этого заказа
     const { data: responsesData } = await supabase
       .from('responses')
       .select(`
