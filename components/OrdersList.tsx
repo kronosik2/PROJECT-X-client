@@ -22,13 +22,9 @@ export default function OrdersList({ clientId, refreshKey }: OrdersListProps) {
     const cached = localStorage.getItem(cacheKey);
     const cachedTime = localStorage.getItem(`${cacheKey}_time`);
     
-    // Если кэш свежий (менее 30 секунд) — показываем сразу
     if (cached && cachedTime && Date.now() - parseInt(cachedTime) < 30000) {
-      console.log('Using cached orders');
       setOrders(JSON.parse(cached));
       setLoading(false);
-      
-      // В фоне обновляем
       fetchFreshOrders(clientId, cacheKey);
       return;
     }
@@ -58,6 +54,52 @@ export default function OrdersList({ clientId, refreshKey }: OrdersListProps) {
     }
   }
 
+  async function cancelOrder(orderId: string) {
+    if (!confirm('Отменить заказ?')) return;
+    
+    await supabase
+      .from('orders')
+      .update({ status: 'cancelled' })
+      .eq('id', orderId);
+    
+    await loadOrders();
+    alert('✅ Заказ отменён');
+  }
+
+  async function completeOrder(orderId: string) {
+    if (!confirm('Подтверждаете выполнение заказа?')) return;
+    
+    await supabase
+      .from('orders')
+      .update({ status: 'completed' })
+      .eq('id', orderId);
+    
+    await loadOrders();
+    alert('✅ Заказ завершён!');
+  }
+
+  const getStatusClass = (status: string) => {
+    switch (status) {
+      case 'pending': return 'status-pending';
+      case 'approved': return 'status-approved';
+      case 'confirmed': return 'status-confirmed';
+      case 'completed': return 'status-completed';
+      case 'cancelled': return 'status-cancelled';
+      default: return 'status-pending';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'pending': return '⏳ Набор исполнителей';
+      case 'approved': return '👷 Утверждён';
+      case 'confirmed': return '🚚 В работе';
+      case 'completed': return '✅ Выполнен';
+      case 'cancelled': return '❌ Отменён';
+      default: return 'Ожидает';
+    }
+  };
+
   if (loading) {
     return <div className="text-center py-20">Загрузка заказов...</div>;
   }
@@ -76,12 +118,33 @@ export default function OrdersList({ clientId, refreshKey }: OrdersListProps) {
         <div key={order.id} className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
           <div className="flex justify-between items-start mb-2">
             <h2 className="font-bold text-lg">{order.title}</h2>
-            <span className="status-badge status-pending">⏳ {order.status}</span>
+            <span className={`status-badge ${getStatusClass(order.status)}`}>
+              {getStatusText(order.status)}
+            </span>
           </div>
           <p className="text-gray-600 text-sm mb-2">{order.description}</p>
           <p className="text-sm text-gray-500 mb-2">📍 {order.address}, {order.city}</p>
           <p className="text-lg font-bold text-blue-600">{order.price} ₽</p>
           <p className="text-sm text-gray-500">👥 Нужно: {order.workers_count} чел.</p>
+          
+          <div className="flex gap-3 mt-4">
+            {order.status === 'pending' && (
+              <button
+                onClick={() => cancelOrder(order.id)}
+                className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700"
+              >
+                ❌ Отменить заказ
+              </button>
+            )}
+            {order.status === 'confirmed' && (
+              <button
+                onClick={() => completeOrder(order.id)}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-green-700"
+              >
+                ✅ Подтвердить выполнение
+              </button>
+            )}
+          </div>
         </div>
       ))}
     </div>
